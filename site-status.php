@@ -24,6 +24,7 @@ class Site_Status {
 
         add_action( 'init' , array( $this , 'init' ) );
         add_action( 'site_status_check_sites' , array( $this , 'cron' ) );
+        add_filter( 'cron_schedules', array( $this , 'cron_schedules' ) );
     }
 
     function cron() {
@@ -40,18 +41,28 @@ class Site_Status {
 
             if( isset( $site_custom['url'] ) && $site_custom[ 'url' ][0] != '' ) {
                 $site_response = wp_remote_head($site_custom[ 'url' ][0]);
-                print_r($site_response);
 
                 if( get_class( $site_response ) == 'WP_Error' ) {
+                    // Something happened, mark as down
                     update_post_meta( $site->ID , 'last_status' , 'down' );
                     update_post_meta( $site->ID , 'last_updated' , time());
                 } else {
+                    // Success! Figure out what response code we got back
                     $response_code = wp_remote_retrieve_response_code($site_response);
                     update_post_meta( $site->ID , 'last_status' , $this->process_response_code( $response_code ) );
                     update_post_meta( $site->ID , 'last_updated' , time());
                 }
             }
         }
+    }
+
+    function cron_schedules( $schedules ) {
+        $schedules['five_minutes'] = array(
+            'interval' => 60*5,
+            'display' => __('Every 5 Minutes')
+        );
+
+        return $schedules;
     }
 
     function process_response_code( $response_code ) {
